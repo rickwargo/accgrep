@@ -27,9 +27,10 @@ Options:
     -r, --replace STRING             use STRING as a replacement to the regular expression
     -D, --delete-matching-line       delete lines matching the regular expression
     -s, --search WHAT                database objects to search
-                                       (all, macros, procedures, references, forms, reports)
+                                       (all, macros, procedures, references, forms, reports, tables, queries, data)
     -c, --controls NAME              search only controls matching NAME (should include property)
     -p, --properties NAME            search only properties matching NAME (should include form or report name)
+    -f, --field NAME                 search only field named NAME
     -P, --procedure NAME             search only the NAMEd procedure (may have multiples)
     -m, --max-count NUM              stop after NUM matches
         --include PATTERN            files that match PATTERN will be examined
@@ -38,6 +39,10 @@ Options:
     -Q, --queries-matching PATTERN   queries that match PATTERN will be examined
     -R, --reports-matching PATTERN   reports that match PATTERN will be examined
     -T, --tables-matching PATTERN    tables that match PATTERN will be examined
+        --linked-tables              only search linked tables (Connect string is not empty)
+    -w, --where CLAUSE               use clause to limit rows in searching table data
+    -a, --and                        specify AND between the where clauses
+    -o, --or                         specify OR between the where clauses
 
 Options that shouldn't be options:
     -C, --recycle-every NUM          recycle access application every NUM times
