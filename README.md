@@ -7,7 +7,7 @@ This command line utility will perform a *regular expression* search on many
 Access objects. It is only meant to be run from *Windows* as it manipulates the
 Access COM object through **Win32ole automation**. 
 
-It decomposes all of the significant objects in Excel into text streams and
+It decomposes all of the significant objects in Access into text streams and
 applies regex matching to find items of interest. It is also capable of 
 find and replace.
 
