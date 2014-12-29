@@ -3,7 +3,7 @@ require 'ostruct'
 
 class OptionParser
   def self.parse(args)
-    @search = %w[all macros procedures references forms reports]
+    @search = %w[all macros procedures references forms reports tables queries data]
     
     options = OpenStruct.new
     options.files_with_matches = false
@@ -29,8 +29,11 @@ class OptionParser
     options.queries_matching = ""
     options.reports_matching = ""
     options.tables_matching = ""
+		options.linked_tables = false
     options.controls = []
     options.properties = []
+		options.fields = []
+		options.where_clause = ""
 		options.recycle_every = 0
     
     opts = OptionParser.new do |opt|
@@ -90,7 +93,6 @@ class OptionParser
   
       code_list = @search.join(', ')
       opt.on("-s", "--search WHAT", @search, "database objects to search", "  (#{code_list})") do |what|
-        what = "values" if what =~ /^data/i
         if what == "all"
           @search.each do |w|
             options.search |= [w] if w !~ /^all|^data/
@@ -107,7 +109,11 @@ class OptionParser
       opt.on("-p", "--properties NAME", "search only properties matching NAME (should include form or report name)") do |path|
         options.properties |= [path]
       end
-			
+
+      opt.on("-f", "--field NAME", "search only field named NAME") do |fieldname|
+        options.fields |= ['['+fieldname+']']
+      end
+
       opt.on("-P", "--procedure NAME", "search only the NAMEd procedure (may have multiples)") do |name|
         options.search |= ['procedures']
         options.procedures << name
@@ -135,17 +141,34 @@ class OptionParser
         options.queries_matching = pattern
 				options.search |= ['queries']
 				end
-			
-      opt.on("-R", "--reports-matching PATTERN", "reports that match PATTERN will be examined") do |pattern|
+
+				opt.on("-R", "--reports-matching PATTERN", "reports that match PATTERN will be examined") do |pattern|
         options.reports_matching = pattern
 				options.search |= ['reports']
       end
-			
+
       opt.on("-T", "--tables-matching PATTERN", "tables that match PATTERN will be examined") do |pattern|
         options.tables_matching = pattern
-				options.search |= ['tables']
+				options.search |= ['tables'] if !options.search.include?('data')
 			end
+
+      opt.on("--linked-tables", "only search linked tables (Connect string is not empty)") do
+        options.linked_tables = true
+				options.search |= ['tables'] if !options.search.include?('data')
+      end
+      
+      opt.on("-w", "--where CLAUSE", "use clause to limit rows in searching table data") do |clause|
+        options.where_clause << " (#{clause})"
+      end
 			
+			opt.on("-a", "--and", "specify AND between the where clauses") do
+				options.where_clause << " and"
+			end
+
+			opt.on("-o", "--or", "specify OR between the where clauses") do
+				options.where_clause << " or"
+			end
+
       opt.separator ""
       opt.separator "Options that shouldn't be options:"
       

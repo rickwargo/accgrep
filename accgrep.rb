@@ -77,7 +77,7 @@ def grep1(access, file)
 							t = obj.sub(re, Options.replace)
 							if t != obj
 								$stderr.puts "Replacing #{re} in #{file} with \"#{Options.replace}\"" if Options.verbose
-								access_obj.replace(t)
+								access_obj.replace(t, re)
 								needs_save = needs_save + 1
 							end
 						else

@@ -8,6 +8,8 @@ class AccessObject
 			@query = ""
 			@report = ""
 			@table = ""
+			@field = ""
+			@recno = 0
     end
 
     def each_form
@@ -35,25 +37,32 @@ class AccessObject
 		end
 		
     def each_query
-			@access.CurrentDb.QueryDefs.each do |query|
-				if query.Name.match(Options.queries_matching)
-					$stderr.puts ">>> Searching query \"#{query.Name}\"" if Options.verbose
-					@query = query
+			@access.CurrentDb.QueryDefs.each do |@query|
+				if @query.Name.match(Options.queries_matching) && (@query.Connect.empty? || Options.linked_tables)
+					$stderr.puts ">>> Searching query \"#{@query.Name}\"" if Options.verbose
 					yield @query 
 				end
       end
     end
     
     def each_table
-			@access.CurrentDb.Containers("tables").Documents.each do |table|
-				if table.Name.match(Options.tables_matching)
-					$stderr.puts ">>> Searching table \"#{table.Name}\"" if Options.verbose
-					@table = table
+			@access.CurrentDb.TableDefs.each do |@table|
+				if @table.Name.match(Options.tables_matching) && (@table.Connect.empty? || Options.linked_tables)
+					$stderr.puts ">>> Searching table \"#{@table.Name}\"" if Options.verbose
 					yield @table 
 				end
       end
     end
-    
+		
+		def each_datum
+			@access.CurrentDb.TableDefs.each do |@table|
+				if @table.Name.match(Options.tables_matching) && (@table.Connect.empty? || Options.linked_tables)
+					$stderr.puts ">>> Searching table data in \"#{@table.Name}\"" if Options.verbose
+					yield @table 
+				end
+      end
+		end
+		
 		def each_control
 			raise NotImplementedError
 		end
@@ -191,7 +200,7 @@ class AccessObject
 		def where
 			"#{@object.Name}.#{@property}"
 		end
-		
+
 		def each(&block)
 			iterator do |object|
 				object.Properties.each do |property|
@@ -239,6 +248,57 @@ class AccessObject
 		end
 	end
 
+	class DataAccessObject < AbstractAccessObject
+		def where
+			"[#{@table.Name}].[#{@field.Name}](Rec ##{@recno})"
+		end
+		
+		def iterator(&block)
+			each_datum &block
+		end
+
+    def replace(new_value, re)
+			begin
+				@rs.Edit
+				@field.Value = @field.Value.to_s.gsub!(/#{re}/, new_value)
+				@rs.Update
+			rescue StandardError => oops
+				$stderr.puts "Exception replacing [#{@table.Name}]({@recno}).[#{@field.Name}].Value = '#{@field.Value.to_s}': #{oops}"
+			end
+    end
+		
+		def delete_current_line
+			begin
+				@rs.Delete
+			rescue StandardError => oops
+				$stderr.puts "Exception deleting [#{@table.Name}]({@recno}).[#{@field.Name}]: #{oops}"
+			end
+		end
+
+		def each(&block)
+			each_datum do |table|
+				sql = "SELECT #{Options.fields.empty? ? '*' : Options.fields.join(',')} FROM [#{table.Name}]"
+				sql += " WHERE#{Options.where_clause}" unless Options.where_clause.empty?
+				$stderr.puts ">>> Executing SQL \"#{sql}\"" if Options.verbose
+				begin
+					@rs = @access.CurrentDb.OpenRecordset(sql)
+					@recno = 0
+					while not @rs.EOF do
+						@recno += 1
+						@rs.Fields.each do |@field|
+							yield @field.Value.to_s
+						end
+						@rs.MoveNext
+					end
+				rescue StandardError => oops
+					$stderr.puts "Exception processing #{table.Name}: #{oops}"
+					@rs.Close
+					@rs = nil
+				end
+			end
+		end
+	end
+	
 	class ReferencesAccessObject < LineAccessObject
     def each
       @line = 0
@@ -320,10 +380,12 @@ class AccessObject
             Options.controls.empty? ? ReportPropertyAccessObject : ReportControlAccessObject
 					when /^form/
             Options.controls.empty? ? FormPropertyAccessObject : FormControlAccessObject
-					when /^table/
+					when /^tab/
 						TablePropertyAccessObject
 					when /^quer/
 						QueryPropertyAccessObject
+					when /^dat/
+						DataAccessObject
 					end
       klass::new(access)
     end
